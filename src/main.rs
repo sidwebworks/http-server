@@ -1,6 +1,6 @@
 use server::{Handler, Server};
 
-use crate::http::{response::Response, StatusCode};
+use crate::http::{Response, StatusCode};
 
 mod http;
 mod server;
@@ -8,7 +8,7 @@ mod server;
 struct RequestHandler;
 
 impl Handler for RequestHandler {
-    fn handle_request(&self, request: &http::Request) -> http::response::Response {
+    fn handle_request(&self, request: &http::Request) -> Response {
         dbg!(request);
         Response::new(
             StatusCode::Ok,

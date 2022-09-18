@@ -3,6 +3,7 @@ pub use request::Request;
 pub use request::ParseError;
 pub use querystring::{QueryString, Value as QueryStringValue};
 pub use status_code::StatusCode;
+pub use response::Response;
 
 pub mod method;
 pub mod response;
