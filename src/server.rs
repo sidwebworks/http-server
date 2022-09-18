@@ -1,17 +1,28 @@
-use crate::http::Request;
+use crate::http::response::Response;
+use crate::http::{ParseError, Request, StatusCode};
 use std::convert::TryFrom;
 use std::io::Read;
 use std::net::TcpStream;
 use std::{net::TcpListener, process};
 
+pub trait Handler {
+    fn handle_request(&self, request: &Request) -> Response;
+    fn handle_bad_request(&self, err: &ParseError) -> Response {
+        println!("Failed to parse request: {}", err);
+        Response::new(StatusCode::BadRequest, None)
+    }
+}
+
 pub struct Server {
     address: String,
+    handler: Option<Box<dyn Handler>>,
 }
 
 impl Server {
-    pub fn new(addr: &str) -> Self {
+    pub fn new(host: &str, port: i32) -> Self {
         Server {
-            address: addr.to_string(),
+            address: format!("{}:{}", host, port),
+            handler: None,
         }
     }
 
@@ -23,8 +34,30 @@ impl Server {
                 println!("Server listening at {}", self.address);
                 loop {
                     match handle.accept() {
-                        Ok((stream, _)) => {
-                            handle_connection(stream);
+                        Ok((mut stream, _)) => {
+                            println!("Connection established\n");
+
+                            let mut buffer = [0; 1024];
+
+                            match stream.read(&mut buffer) {
+                                Ok(_) => {
+                                    println!("Recieved a request: \n");
+
+                                    let handler = self.handler.as_deref().expect("Request handler is required");
+
+                                    let response = match Request::try_from(&buffer[..]) {
+                                        Ok(request) => handler.handle_request(&request),
+                                        Err(err) => handler.handle_bad_request(&err),
+                                    };
+
+                                    if let Err(e) = response.send(&mut stream) {
+                                        println!("Failed to send response: {}", e);
+                                    }
+                                }
+                                Err(err) => {
+                                    println!("Failed to read from connection: {}", err)
+                                }
+                            };
                         }
                         Err(err) => {
                             println!("Failed to establish a connection: {}", err.kind());
@@ -38,26 +71,8 @@ impl Server {
             }
         }
     }
-}
 
-fn handle_connection(mut stream: TcpStream) {
-    println!("Connection established\n");
-
-    let mut buffer = [0; 1024];
-
-    match stream.read(&mut buffer) {
-        Ok(_) => {
-            println!("Recieved a request: \n");
-
-            match Request::try_from(&buffer[..]) {
-                Ok(request) => {
-                    dbg!(request);
-                }
-                Err(err) => println!("Failed to parse request: {}", err),
-            }
-        }
-        Err(err) => {
-            println!("Failed to read from connection: {}", err)
-        }
+    pub fn set_handler(&mut self, handler: Option<Box<dyn Handler>>) {
+        self.handler = handler;
     }
 }
