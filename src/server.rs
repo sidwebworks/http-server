@@ -31,6 +31,7 @@ impl Server {
         match listener {
             Ok(handle) => {
                 println!("Server listening at {}", self.address);
+
                 loop {
                     match handle.accept() {
                         Ok((mut stream, _)) => {
